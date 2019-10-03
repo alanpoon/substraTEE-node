@@ -26,6 +26,7 @@
 #![cfg_attr(feature = "std", doc = "Substrate runtime standard library as compiled when linked with Rust's standard library.")]
 #![cfg_attr(not(feature = "std"), doc = "Substrate's runtime standard library as compiled without Rust's standard library.")]
 
+////////////////////// >>>>>  SubstraTEE patch
 #[macro_use]
 extern crate alloc;
 
@@ -44,10 +45,11 @@ use hash_db::Hasher;
 pub use codec;
 
 pub use primitives::Blake2Hasher;
-use primitives::{crypto::KeyTypeId, ed25519, sr25519 };
+use primitives::{crypto::KeyTypeId, ed25519, sr25519, H256,};
 use primitives::offchain::{
 		Timestamp, HttpRequestId, HttpRequestStatus, HttpError, StorageKind, OpaqueNetworkState,
 	};
+////////////////////// <<<<<<  SubstraTEE patch
 
 /// Error verifying ECDSA signature
 pub enum EcdsaVerifyError {
@@ -61,18 +63,20 @@ pub enum EcdsaVerifyError {
 
 pub mod offchain;
 
+////////////////////// >>>>>  SubstraTEE patch
 /// Trait for things which can be printed.
+#[cfg(feature = "sgx")]
 pub trait Printable {
 	/// Print the object.
 	fn print(&self);
 }
-
+#[cfg(feature = "sgx")]
 impl Printable for u8 {
 	fn print(&self) {
 		u64::from(*self).print()
 	}
 }
-
+////////////////////// <<<<<<  SubstraTEE patch
 /// Converts a public trait definition into a private trait and set of public functions
 /// that assume the trait is implemented for `()` for ease of calling.
 macro_rules! export_api {
@@ -169,26 +173,10 @@ export_api! {
 		fn storage_changes_root(parent_hash: [u8; 32]) -> Option<[u8; 32]>;
 
 		/// A trie root formed from the iterated items.
-		fn trie_root<H, I, A, B>(input: I) -> H::Out
-		where
-			I: IntoIterator<Item = (A, B)>,
-			A: AsRef<[u8]>,
-			A: Ord,
-			B: AsRef<[u8]>,
-			H: Hasher,
-			H: self::imp::HasherBounds,
-			H::Out: Ord
-		;
+		fn blake2_256_trie_root(input: Vec<(Vec<u8>, Vec<u8>)>) -> H256;
 
 		/// A trie root formed from the enumerated items.
-		fn ordered_trie_root<H, I, A>(input: I) -> H::Out
-		where
-			I: IntoIterator<Item = A>,
-			A: AsRef<[u8]>,
-			H: Hasher,
-			H: self::imp::HasherBounds,
-			H::Out: Ord
-		;
+		fn blake2_256_ordered_trie_root(input: Vec<Vec<u8>>) -> H256;
 	}
 }
 
@@ -196,8 +184,19 @@ export_api! {
 	pub(crate) trait OtherApi {
 		/// The current relay chain identifier.
 		fn chain_id() -> u64;
-
+////////////////////// >>>>>  SubstraTEE patch
+		/// Print a number.
+		#[cfg(not(feature = "sgx"))]		
+		fn print_num(val: u64);
+		/// Print any valid `utf8` buffer.
+		#[cfg(not(feature = "sgx"))]
+		fn print_utf8(utf8: &[u8]);
+		/// Print any `u8` slice as hex.
+		#[cfg(not(feature = "sgx"))]
+		fn print_hex(data: &[u8]);
+		
 		/// Print a printable value.
+		#[cfg(feature = "sgx")]		
 		fn print<T>(value: T)
 		where
 			T: Printable,
@@ -206,6 +205,9 @@ export_api! {
 
 		/// Parse and verify Intel's ra report
 		fn verify_ra_report(cert: &[u8]) -> Result<(), &'static str>;
+		
+////////////////////// <<<<<  SubstraTEE patch	
+
 	}
 }
 
@@ -221,10 +223,10 @@ export_api! {
 		/// key type in the keystore.
 		///
 		/// Returns the raw signature.
-		fn ed25519_sign<M: AsRef<[u8]>>(
+		fn ed25519_sign(
 			id: KeyTypeId,
 			pubkey: &ed25519::Public,
-			msg: &M,
+			msg: &[u8],
 		) -> Option<ed25519::Signature>;
 		/// Verify an ed25519 signature.
 		///
@@ -241,10 +243,10 @@ export_api! {
 		/// key type in the keystore.
 		///
 		/// Returns the raw signature.
-		fn sr25519_sign<M: AsRef<[u8]>>(
+		fn sr25519_sign(
 			id: KeyTypeId,
 			pubkey: &sr25519::Public,
-			msg: &M,
+			msg: &[u8],
 		) -> Option<sr25519::Signature>;
 		/// Verify an sr25519 signature.
 		///
@@ -291,7 +293,7 @@ export_api! {
 		/// Submit transaction to the pool.
 		///
 		/// The transaction will end up in the pool.
-		fn submit_transaction<T: codec::Encode>(data: &T) -> Result<(), ()>;
+		fn submit_transaction(data: Vec<u8>) -> Result<(), ()>;
 
 		/// Returns information about the local node's network state.
 		fn network_state() -> Result<OpaqueNetworkState, ()>;
@@ -327,7 +329,7 @@ export_api! {
 			kind: StorageKind,
 			key: &[u8],
 			old_value: Option<&[u8]>,
-			new_value: &[u8]
+			new_value: &[u8],
 		) -> bool;
 
 		/// Gets a value from the local storage.
@@ -344,14 +346,14 @@ export_api! {
 		fn http_request_start(
 			method: &str,
 			uri: &str,
-			meta: &[u8]
+			meta: &[u8],
 		) -> Result<HttpRequestId, ()>;
 
 		/// Append header to the request.
 		fn http_request_add_header(
 			request_id: HttpRequestId,
 			name: &str,
-			value: &str
+			value: &str,
 		) -> Result<(), ()>;
 
 		/// Write a chunk of request body.
@@ -363,7 +365,7 @@ export_api! {
 		fn http_request_write_body(
 			request_id: HttpRequestId,
 			chunk: &[u8],
-			deadline: Option<Timestamp>
+			deadline: Option<Timestamp>,
 		) -> Result<(), HttpError>;
 
 		/// Block and wait for the responses for given requests.
@@ -375,16 +377,14 @@ export_api! {
 		/// Passing `None` as deadline blocks forever.
 		fn http_response_wait(
 			ids: &[HttpRequestId],
-			deadline: Option<Timestamp>
+			deadline: Option<Timestamp>,
 		) -> Vec<HttpRequestStatus>;
 
 		/// Read all response headers.
 		///
 		/// Returns a vector of pairs `(HeaderKey, HeaderValue)`.
 		/// NOTE response headers have to be read before response body.
-		fn http_response_headers(
-			request_id: HttpRequestId
-		) -> Vec<(Vec<u8>, Vec<u8>)>;
+		fn http_response_headers(request_id: HttpRequestId) -> Vec<(Vec<u8>, Vec<u8>)>;
 
 		/// Read a chunk of body response to given buffer.
 		///
@@ -397,7 +397,7 @@ export_api! {
 		fn http_response_read_body(
 			request_id: HttpRequestId,
 			buffer: &mut [u8],
-			deadline: Option<Timestamp>
+			deadline: Option<Timestamp>,
 		) -> Result<usize, HttpError>;
 	}
 }
@@ -413,11 +413,14 @@ mod imp {
 	#[cfg(feature = "std")]
 	include!("../with_std.rs");
 
+////////////////////// >>>>>  SubstraTEE patch
 	#[cfg(all(not(feature = "std"), not(feature = "sgx")))]
 	include!("../without_std.rs");
 
 	#[cfg(all(not(feature = "std"), feature = "sgx"))]
 	include!("../with_sgx.rs");
+////////////////////// <<<<<  SubstraTEE patch
+
 
 }
 
@@ -426,12 +429,12 @@ pub use self::imp::{
 	StorageOverlay, ChildrenStorageOverlay, with_storage,
 	with_externalities
 };
-
+////////////////////// >>>>>  SubstraTEE patch
 #[cfg(all(not(feature = "std"), not(feature = "sgx")))]
 pub use self::imp::ext::*;
 #[cfg(all(not(feature = "std"), feature = "sgx"))]
 pub use self::imp::{StorageOverlay, ChildrenStorageOverlay, with_externalities, SgxExternalities};
-
+////////////////////// <<<<<  SubstraTEE patch
 /// Type alias for Externalities implementation used in tests.
 #[cfg(feature = "std")]
 pub type TestExternalities<H> = self::imp::TestExternalities<H, u64>;

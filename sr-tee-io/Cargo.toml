@@ -23,36 +23,34 @@ twox-hash = { version = "1.3.0", default-features = false, optional = true }
 
 [dependencies.rstd]
 default-features = false
-git = 'https://github.com/paritytech/substrate'
+git = "https://github.com/scs/substrate"
 package = 'sr-std'
-rev = '9b08e7ff938a45dbec7fcdb854063202e2b0cb48'
 
 [dependencies.primitives]
 default-features = false
-git = 'https://github.com/paritytech/substrate'
+git = "https://github.com/scs/substrate"
+branch = "brenzi-no-std-crypto"
 package = 'substrate-primitives'
-rev = '9b08e7ff938a45dbec7fcdb854063202e2b0cb48'
+features = ["with_crypto"]
+
 
 [dependencies.substrate-state-machine]
 optional = true
-git = 'https://github.com/paritytech/substrate'
+git = "https://github.com/scs/substrate"
 package = 'substrate-state-machine'
-rev = '9b08e7ff938a45dbec7fcdb854063202e2b0cb48'
 
 [dependencies.trie]
 optional = true
-git = 'https://github.com/paritytech/substrate'
+git = "https://github.com/scs/substrate"
 package = 'substrate-trie'
-rev = '9b08e7ff938a45dbec7fcdb854063202e2b0cb48'
 
 [dependencies.host_calls]
 optional = true
 path = '../host_calls/'
 
 #[dev-dependencies.substrate-offchain]
-#git = 'https://github.com/paritytech/substrate'
+#git = "https://github.com/scs/substrate"
 #package = 'substrate-offchain'
-#rev = '9b08e7ff938a45dbec7fcdb854063202e2b0cb48'
 
 [features]
 default = ["std"]
@@ -86,8 +84,9 @@ wasm-nice-panic-message = []
 no_panic_handler = []
 no_oom = []
 
-[patch.'https://github.com/paritytech/substrate']
-substrate-primitives = { git = "https://github.com/scs/substrate-api-client", branch = "no_std_rstd"}
+[patch.'https://github.com/scs/substrate']
+# because of cargo bug, we need to add .git (https://github.com/rust-lang/cargo/issues/5478)
+substrate-primitives = { git = "https://github.com/scs/substrate.git", branch = "brenzi-no-std-crypto"}
 
 [patch.crates-io]
 ed25519-dalek = { git = "https://github.com/scs/ed25519-dalek.git", branch = "no_std_sgx"}

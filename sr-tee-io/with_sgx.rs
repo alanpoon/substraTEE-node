@@ -13,6 +13,8 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+
+////////////////////// >>>>>  SubstraTEE patch
 #[macro_use]
 use std::fmt;
 #[macro_use]
@@ -20,12 +22,16 @@ use std::vec::Vec;
 
 use sgx_log::*;
 
-use primitives::{
-	blake2_128, blake2_256, twox_128, twox_256, twox_64, ed25519, Blake2Hasher, sr25519, Pair,
-};
-
 #[cfg(feature = "enable_host_calls")]
 extern crate host_calls;
+
+
+use primitives::{
+	blake2_128, blake2_256, twox_128, twox_256, twox_64, ed25519, Blake2Hasher, sr25519, Pair, H256, 
+	offchain,
+	Hasher,
+};
+
 
 /*
 // Switch to this after PoC-3
@@ -35,13 +41,16 @@ pub use substrate_state_machine::{
 };
 */
 use environmental::environmental;
-use primitives::{offchain, H256};
+
 //use primitives::{hexdisplay::HexDisplay};
 //use trie::{TrieConfiguration, trie_types::Layout};
 
 use std::{collections::HashMap, convert::TryFrom};
+
+
 pub type SgxExternalities = HashMap<Vec<u8>, Vec<u8>>;
-environmental!(hm: SgxExternalities);
+environmental!(ext: SgxExternalities);
+////////////////////// <<<<<  SubstraTEE patch
 
 /// Additional bounds for `Hasher` trait for with_std.
 pub trait HasherBounds {}
@@ -52,6 +61,7 @@ impl<T: Hasher> HasherBounds for T {}
 ///
 /// Panicking here is aligned with what the `without_std` environment would do
 /// in the case of an invalid child storage key.
+////////////////////// >>>>>  SubstraTEE patch
 /*
 fn child_storage_key_or_panic(storage_key: &[u8]) -> ChildStorageKey<Blake2Hasher> {
 	match ChildStorageKey::from_slice(storage_key) {
@@ -87,11 +97,14 @@ pub fn encode_hex(bytes: &[u8]) -> String {
         .collect();
     strs.join("")
 }
+////////////////////// <<<<<<  SubstraTEE patch
+
+
 
 impl StorageApi for () {
 	fn storage(key: &[u8]) -> Option<Vec<u8>> {
 		debug!("storage('{}')", encode_hex(key));
-		hm::with(|hm| hm.get(key).map(|s| {
+		ext::with(|ext| ext.get(key).map(|s| {
 			debug!("  returning {}", encode_hex(s));
 			s.to_vec()
 		}))
@@ -100,12 +113,12 @@ impl StorageApi for () {
 
 	fn read_storage(key: &[u8], value_out: &mut [u8], value_offset: usize) -> Option<usize> {
 		debug!("read_storage('{}' with offset =  {:?}. value_out.len() is {})", encode_hex(key), value_offset, value_out.len());
-		hm::with(|hm| hm.get(key).map(|value| {
+		ext::with(|ext| ext.get(key).map(|value| {
 			debug!("  entire stored value: {:?}", value);
-			let value = &value[value_offset..];
+			let data = &value[value_offset.min(value.len())..];
 			debug!("  stored value at offset: {:?}", value);
-			let written = std::cmp::min(value.len(), value_out.len());
-			value_out[..written].copy_from_slice(&value[..written]);
+			let written = std::cmp::min(data.len(), value_out.len());
+			value_out[..written].copy_from_slice(&data[..written]);
 			debug!("  write back {:?}, return len {}", value_out, value.len());
 			value.len()
 		})).expect("read_storage cannot be called outside of an Externalities-provided environment.")
@@ -119,8 +132,8 @@ impl StorageApi for () {
 
 	fn set_storage(key: &[u8], value: &[u8]) {
 		debug!("set_storage('{}', {:x?})", encode_hex(key), value);
-		hm::with(|hm|
-			hm.insert(key.to_vec(), value.to_vec())
+		ext::with(|ext|
+			ext.insert(key.to_vec(), value.to_vec())
         );
 	}
 
@@ -185,27 +198,14 @@ impl StorageApi for () {
 		Some([0u8; 32])
 	}
 
-	fn trie_root<H, I, A, B>(input: I) -> H::Out
-	where
-		I: IntoIterator<Item = (A, B)>,
-		A: AsRef<[u8]> + Ord,
-		B: AsRef<[u8]>,
-		H: Hasher,
-		H::Out: Ord,
-	{
+	fn blake2_256_trie_root(input: Vec<(Vec<u8>, Vec<u8>)>) -> H256 {
 		warn!("StorageApi::trie_root() unimplemented");
-		H::Out::default()
+		H256::default()
 	}
 
-	fn ordered_trie_root<H, I, A>(input: I) -> H::Out
-	where
-		I: IntoIterator<Item = A>,
-		A: AsRef<[u8]>,
-		H: Hasher,
-		H::Out: Ord,
-	{
+	fn blake2_256_ordered_trie_root(input: Vec<Vec<u8>>) -> H256 {
 		warn!("StorageApi::ordered_trie_root() unimplemented");
-		H::Out::default()
+		H256::default()
 	}
 }
 
@@ -219,6 +219,7 @@ impl OtherApi for () {
 		value.print()
 	}
 
+////////////////////// >>>>>  SubstraTEE patch
 	fn verify_ra_report(cert: &[u8]) -> Result<(), &'static str>{
 		#[cfg(feature = "enable_host_calls")]
 		let ret = host_calls::verify_mra_cert(cert);
@@ -228,6 +229,7 @@ impl OtherApi for () {
 		ret
 
 	}
+////////////////////// <<<<<<  SubstraTEE patch	
 }
 
 impl CryptoApi for () {
@@ -241,10 +243,10 @@ impl CryptoApi for () {
         ed25519::Public::default()
 	}
 
-	fn ed25519_sign<M: AsRef<[u8]>>(
+	fn ed25519_sign(
 		id: KeyTypeId,
 		pubkey: &ed25519::Public,
-		msg: &M,
+		msg: &[u8],
 	) -> Option<ed25519::Signature> {
         warn!("CryptoApi::ed25519_sign unimplemented");
         Some(ed25519::Signature::default())
@@ -265,10 +267,10 @@ impl CryptoApi for () {
 		sr25519::Public::default()
 	}
 
-	fn sr25519_sign<M: AsRef<[u8]>>(
+	fn sr25519_sign(
 		id: KeyTypeId,
 		pubkey: &sr25519::Public,
-		msg: &M,
+		msg: &[u8],
 	) -> Option<sr25519::Signature> {
 		warn!("CryptoApi::sr25519_sign unimplemented");
 		Some(sr25519::Signature::default())
@@ -327,6 +329,7 @@ impl HashingApi for () {
 	}
 }
 
+////////////////////// >>>>>  SubstraTEE patch		
 /*
 fn with_offchain<R>(f: impl FnOnce(&mut dyn offchain::Externalities) -> R, msg: &'static str) -> R {
 	ext::with(|ext| ext
@@ -336,14 +339,14 @@ fn with_offchain<R>(f: impl FnOnce(&mut dyn offchain::Externalities) -> R, msg: 
 	).expect("offchain-worker functions cannot be called outside of an Externalities-provided environment.")
 }
 */
-
+////////////////////// <<<<<<<  SubstraTEE patch
 impl OffchainApi for () {
 	fn is_validator() -> bool {
 		warn!("OffchainApi::submit_extrinsic unimplemented");
         false
 	}
 
-	fn submit_transaction<T: codec::Encode>(data: &T) -> Result<(), ()> {
+	fn submit_transaction(data: Vec<u8>) -> Result<(), ()> {
 		warn!("OffchainApi::submit_transaction unimplemented");
         Err(())
 	}
@@ -389,7 +392,7 @@ impl OffchainApi for () {
 	fn http_request_start(
 		method: &str,
 		uri: &str,
-		meta: &[u8]
+		meta: &[u8],
 	) -> Result<offchain::HttpRequestId, ()> {
 		warn!("OffchainApi::http_request_start unimplemented");
         Err(())
@@ -398,7 +401,7 @@ impl OffchainApi for () {
 	fn http_request_add_header(
 		request_id: offchain::HttpRequestId,
 		name: &str,
-		value: &str
+		value: &str,
 	) -> Result<(), ()> {
 		warn!("OffchainApi::http_request_add_header unimplemented");
         Err(())
@@ -407,7 +410,7 @@ impl OffchainApi for () {
 	fn http_request_write_body(
 		request_id: offchain::HttpRequestId,
 		chunk: &[u8],
-		deadline: Option<offchain::Timestamp>
+		deadline: Option<offchain::Timestamp>,
 	) -> Result<(), offchain::HttpError> {
 		warn!("OffchainApi::http_request_write_body unimplemented");
         Err(offchain::HttpError::IoError)
@@ -415,14 +418,14 @@ impl OffchainApi for () {
 
 	fn http_response_wait(
 		ids: &[offchain::HttpRequestId],
-		deadline: Option<offchain::Timestamp>
+		deadline: Option<offchain::Timestamp>,
 	) -> Vec<offchain::HttpRequestStatus> {
 		warn!("OffchainApi::http_response_wait unimplemented");
         Vec::new()
 	}
 
 	fn http_response_headers(
-		request_id: offchain::HttpRequestId
+		request_id: offchain::HttpRequestId,
 	) -> Vec<(Vec<u8>, Vec<u8>)> {
 		warn!("OffchainApi::http_response_wait unimplemented");
         Vec::new()
@@ -431,7 +434,7 @@ impl OffchainApi for () {
 	fn http_response_read_body(
 		request_id: offchain::HttpRequestId,
 		buffer: &mut [u8],
-		deadline: Option<offchain::Timestamp>
+		deadline: Option<offchain::Timestamp>,
 	) -> Result<usize, offchain::HttpError> {
 		warn!("OffchainApi::http_response_read_body unimplemented");
         Err(offchain::HttpError::IoError)
@@ -443,9 +446,11 @@ impl Api for () {}
 /// Execute the given closure with global function available whose functionality routes into the
 /// externalities `ext`. Forwards the value that the closure returns.
 // NOTE: need a concrete hasher here due to limitations of the `environmental!` macro, otherwise a type param would have been fine I think.
+////////////////////// >>>>>  SubstraTEE patch	
 pub fn with_externalities<R, F: FnOnce() -> R>(ext: &mut SgxExternalities, f: F) -> R {
-	hm::using(ext, f)
+	ext::using(ext, f)
 }
+
 
 /// A set of key value pairs for storage.
 pub type StorageOverlay = (); // HashMap<Vec<u8>, Vec<u8>>;
@@ -472,6 +477,8 @@ pub fn with_storage<R, F: FnOnce() -> R>(
 	r
 }
 */
+
+
 impl<'a> Printable for &'a [u8] {
 	fn print(&self) {
 		println!("Runtime: {:?}", &self);
@@ -489,7 +496,7 @@ impl Printable for u64 {
 		println!("Runtime: {}", self);
 	}
 }
-
+////////////////////// <<<<<<<  SubstraTEE patch	
 #[cfg(test)]
 mod std_tests {
 	use super::*;

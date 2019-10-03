@@ -20,7 +20,6 @@ pub use rstd::{mem, slice};
 
 use core::{intrinsics, panic::PanicInfo};
 use rstd::{vec::Vec, cell::Cell, convert::TryInto};
-use primitives::Blake2Hasher;
 use primitives::offchain;
 use codec::Decode;
 
@@ -29,26 +28,15 @@ use codec::Decode;
 #[no_mangle]
 pub fn panic(info: &PanicInfo) -> ! {
 	unsafe {
-		#[cfg(feature = "wasm-nice-panic-message")]
-		{
-			let message = rstd::alloc::format!("{}", info);
-			extern_functions_host_impl::ext_print_utf8(message.as_ptr() as *const u8, message.len() as u32);
-		}
-		#[cfg(not(feature = "wasm-nice-panic-message"))]
-		{
-			if let Some(loc) = info.location() {
-				extern_functions_host_impl::ext_print_utf8(loc.file().as_ptr() as *const u8, loc.file().len() as u32);
-				extern_functions_host_impl::ext_print_num(loc.line() as u64);
-				extern_functions_host_impl::ext_print_num(loc.column() as u64);
-			}
-		}
+		let message = rstd::alloc::format!("{}", info);
+		extern_functions_host_impl::ext_print_utf8(message.as_ptr() as *const u8, message.len() as u32);
 		intrinsics::abort()
 	}
 }
 
 #[cfg(not(feature = "no_oom"))]
 #[alloc_error_handler]
-pub extern fn oom(_: ::core::alloc::Layout) -> ! {
+pub extern fn oom(_: core::alloc::Layout) -> ! {
 	static OOM_MSG: &str = "Runtime memory exhausted. Aborting";
 
 	unsafe {
@@ -127,44 +115,6 @@ pub mod ext {
 		}
 	}
 
-	/// Ensures we use the right crypto when calling into native
-	pub trait ExternTrieCrypto: Hasher {
-		/// A trie root formed from the enumerated items.
-		fn ordered_trie_root<
-			A: AsRef<[u8]>,
-			I: IntoIterator<Item = A>
-		>(values: I) -> Self::Out;
-	}
-
-	/// Additional bounds for Hasher trait for without_std.
-	pub trait HasherBounds: ExternTrieCrypto {}
-	impl<T: ExternTrieCrypto + Hasher> HasherBounds for T {}
-
-	// Ensures we use a Blake2_256-flavored Hasher when calling into native
-	impl ExternTrieCrypto for Blake2Hasher {
-		fn ordered_trie_root<
-			A: AsRef<[u8]>,
-			I: IntoIterator<Item = A>
-		>(items: I) -> Self::Out {
-			let mut values = Vec::new();
-			let mut lengths = Vec::new();
-			for v in items.into_iter() {
-				values.extend_from_slice(v.as_ref());
-				lengths.push((v.as_ref().len() as u32).to_le());
-			}
-			let mut result: [u8; 32] = Default::default();
-			unsafe {
-				ext_blake2_256_enumerated_trie_root.get()(
-					values.as_ptr(),
-					lengths.as_ptr(),
-					lengths.len() as u32,
-					result.as_mut_ptr()
-				);
-			}
-			result.into()
-		}
-	}
-
 	/// Declare extern functions
 	macro_rules! extern_functions {
 		(
@@ -211,11 +161,12 @@ pub mod ext {
 		/// Print a number
 		fn ext_print_num(value: u64);
 
+////////////////////// >>>>>  SubstraTEE patch
 		/// Parse and verify Intel's remote attestation report.
 		/// - `1` if the report is valid
 		/// - `0` if the report is invalid.
 		fn ext_verify_ra_report(cert: *const u8, cert_len: u32) -> u32;
-
+////////////////////// <<<<<  SubstraTEE patch
 		/// Set value for key in storage.
 		fn ext_set_storage(key_data: *const u8, key_len: u32, value_data: *const u8, value_len: u32);
 		/// Remove key and value from storage.
@@ -234,7 +185,7 @@ pub mod ext {
 			storage_key_data: *const u8,
 			storage_key_len: u32,
 			prefix_data: *const u8,
-			prefix_len: u32
+			prefix_len: u32,
 		);
 		/// Gets the value of the given key from storage.
 		///
@@ -261,7 +212,7 @@ pub mod ext {
 			key_len: u32,
 			value_data: *mut u8,
 			value_len: u32,
-			value_offset: u32
+			value_offset: u32,
 		) -> u32;
 		/// Gets the trie root of the storage.
 		fn ext_storage_root(result: *mut u8);
@@ -272,7 +223,10 @@ pub mod ext {
 		/// - `1` if the change trie root was found.
 		/// - `0` if the change trie root was not found.
 		fn ext_storage_changes_root(
-			parent_hash_data: *const u8, parent_hash_len: u32, result: *mut u8) -> u32;
+			parent_hash_data: *const u8,
+			parent_hash_len: u32,
+			result: *mut u8,
+		) -> u32;
 
 		/// A child storage function.
 		///
@@ -285,7 +239,7 @@ pub mod ext {
 			key_data: *const u8,
 			key_len: u32,
 			value_data: *const u8,
-			value_len: u32
+			value_len: u32,
 		);
 		/// A child storage function.
 		///
@@ -296,7 +250,7 @@ pub mod ext {
 			storage_key_data: *const u8,
 			storage_key_len: u32,
 			key_data: *const u8,
-			key_len: u32
+			key_len: u32,
 		);
 		/// A child storage function.
 		///
@@ -307,7 +261,7 @@ pub mod ext {
 			storage_key_data: *const u8,
 			storage_key_len: u32,
 			key_data: *const u8,
-			key_len: u32
+			key_len: u32,
 		) -> u32;
 		/// A child storage function.
 		///
@@ -325,7 +279,7 @@ pub mod ext {
 			storage_key_len: u32,
 			key_data: *const u8,
 			key_len: u32,
-			written_out: *mut u32
+			written_out: *mut u32,
 		) -> *mut u8;
 		/// A child storage function.
 		///
@@ -339,7 +293,7 @@ pub mod ext {
 			key_len: u32,
 			value_data: *mut u8,
 			value_len: u32,
-			value_offset: u32
+			value_offset: u32,
 		) -> u32;
 		/// Commits all changes and calculates the child-storage root.
 		///
@@ -504,7 +458,7 @@ pub mod ext {
 			old_value: *const u8,
 			old_value_len: u32,
 			new_value: *const u8,
-			new_value_len: u32
+			new_value_len: u32,
 		) -> u32;
 
 		/// Read a value from local storage.
@@ -532,7 +486,7 @@ pub mod ext {
 			url: *const u8,
 			url_len: u32,
 			meta: *const u8,
-			meta_len: u32
+			meta_len: u32,
 		) -> u32;
 
 		/// Add a header to the request.
@@ -546,7 +500,7 @@ pub mod ext {
 			name: *const u8,
 			name_len: u32,
 			value: *const u8,
-			value_len: u32
+			value_len: u32,
 		) -> u32;
 
 		/// Write a chunk of request body.
@@ -562,7 +516,7 @@ pub mod ext {
 			request_id: u32,
 			chunk: *const u8,
 			chunk_len: u32,
-			deadline: u64
+			deadline: u64,
 		) -> u32;
 
 		/// Block and wait for the responses for given requests.
@@ -576,7 +530,7 @@ pub mod ext {
 			ids: *const u32,
 			ids_len: u32,
 			statuses: *mut u32,
-			deadline: u64
+			deadline: u64,
 		);
 
 		/// Read all response headers.
@@ -589,7 +543,7 @@ pub mod ext {
 		/// - In case invalid `id` is passed it returns a pointer to parity-encoded empty vector.
 		fn ext_http_response_headers(
 			id: u32,
-			written_out: *mut u32
+			written_out: *mut u32,
 		) -> *mut u8;
 
 		/// Read a chunk of body response to given buffer.
@@ -611,7 +565,7 @@ pub mod ext {
 			id: u32,
 			buffer: *mut u8,
 			buffer_len: u32,
-			deadline: u64
+			deadline: u64,
 		) -> u32;
 	}
 }
@@ -783,21 +737,28 @@ impl StorageApi for () {
 		}
 	}
 
-	fn trie_root<
-		H: Hasher + ExternTrieCrypto,
-		I: IntoIterator<Item = (A, B)>,
-		A: AsRef<[u8]> + Ord,
-		B: AsRef<[u8]>,
-	>(_input: I) -> H::Out {
+
+	fn blake2_256_trie_root(_input: Vec<(Vec<u8>, Vec<u8>)>) -> H256 {
 		unimplemented!()
 	}
 
-	fn ordered_trie_root<
-		H: Hasher + ExternTrieCrypto,
-		I: IntoIterator<Item = A>,
-		A: AsRef<[u8]>
-	>(values: I) -> H::Out {
-		H::ordered_trie_root(values)
+	fn blake2_256_ordered_trie_root(input: Vec<Vec<u8>>) -> H256 {
+		let mut values = Vec::with_capacity(input.len());
+		let mut lengths = Vec::with_capacity(input.len());
+		for v in input {
+			values.extend_from_slice(&v);
+			lengths.push((v.len() as u32).to_le());
+		}
+		let mut result: [u8; 32] = Default::default();
+		unsafe {
+			ext_blake2_256_enumerated_trie_root.get()(
+				values.as_ptr(),
+				lengths.as_ptr(),
+				lengths.len() as u32,
+				result.as_mut_ptr(),
+			);
+		}
+		result.into()
 	}
 }
 
@@ -808,9 +769,25 @@ impl OtherApi for () {
 		}
 	}
 
-	fn print<T: Printable + Sized>(value: T) {
-		value.print()
+	fn print_num(val: u64) {
+		unsafe {
+			ext_print_num.get()(val);
+		}
 	}
+
+	fn print_utf8(utf8: &[u8]) {
+		unsafe {
+			ext_print_utf8.get()(utf8.as_ptr(), utf8.len() as u32);
+		}
+	}
+
+	fn print_hex(data: &[u8]) {
+		unsafe {
+			ext_print_hex.get()(data.as_ptr(), data.len() as u32);
+		}
+	}
+
+	////////////////////// >>>>>  SubstraTEE patch
 	fn verify_ra_report(cert: &[u8]) -> Result<(), &'static str> {
 		match unsafe {
 			ext_verify_ra_report.get()(cert.as_ptr(), cert.len() as u32)
@@ -821,6 +798,8 @@ impl OtherApi for () {
 			_ => unreachable!("`ext_verify_ra_report` only returns 0, 1, or 2; qed"),
 		}
 	}
+	////////////////////// <<<<<<  SubstraTEE patch
+
 }
 
 impl HashingApi for () {
@@ -891,18 +870,18 @@ impl CryptoApi for () {
 		ed25519::Public(res)
 	}
 
-	fn ed25519_sign<M: AsRef<[u8]>>(
+	fn ed25519_sign(
 		id: KeyTypeId,
 		pubkey: &ed25519::Public,
-		msg: &M,
+		msg: &[u8],
 	) -> Option<ed25519::Signature> {
 		let mut res = [0u8; 64];
 		let success = unsafe {
 			ext_ed25519_sign.get()(
 				id.0.as_ptr(),
 				pubkey.0.as_ptr(),
-				msg.as_ref().as_ptr(),
-				msg.as_ref().len() as u32,
+				msg.as_ptr(),
+				msg.len() as u32,
 				res.as_mut_ptr(),
 			) == 0
 		};
@@ -924,7 +903,7 @@ impl CryptoApi for () {
 			) == 0
 		}
 	}
-	
+
 	fn sr25519_public_keys(id: KeyTypeId) -> Vec<sr25519::Public> {
 		let mut res_len = 0u32;
 		unsafe {
@@ -932,7 +911,7 @@ impl CryptoApi for () {
 			Vec::decode(&mut rstd::slice::from_raw_parts(res_ptr, res_len as usize)).unwrap_or_default()
 		}
 	}
-	
+
 	fn sr25519_generate(id: KeyTypeId, seed: Option<&str>) -> sr25519::Public {
 		let mut res = [0u8;32];
 		let seed = seed.as_ref().map(|s| s.as_bytes()).unwrap_or(&[]);
@@ -941,19 +920,19 @@ impl CryptoApi for () {
 		};
 		sr25519::Public(res)
 	}
-	
-	fn sr25519_sign<M: AsRef<[u8]>>(
+
+	fn sr25519_sign(
 		id: KeyTypeId,
 		pubkey: &sr25519::Public,
-		msg: &M,
+		msg: &[u8],
 	) -> Option<sr25519::Signature> {
 		let mut res = [0u8; 64];
 		let success = unsafe {
 			ext_sr25519_sign.get()(
 				id.0.as_ptr(),
 				pubkey.0.as_ptr(),
-				msg.as_ref().as_ptr(),
-				msg.as_ref().len() as u32,
+				msg.as_ptr(),
+				msg.len() as u32,
 				res.as_mut_ptr(),
 			) == 0
 		};
@@ -964,6 +943,7 @@ impl CryptoApi for () {
 			None
 		}
 	}
+
 	fn sr25519_verify(sig: &sr25519::Signature, msg: &[u8], pubkey: &sr25519::Public) -> bool {
 		unsafe {
 			ext_sr25519_verify.get()(
@@ -994,10 +974,9 @@ impl OffchainApi for () {
 		unsafe { ext_is_validator.get()() == 1 }
 	}
 
-	fn submit_transaction<T: codec::Encode>(data: &T) -> Result<(), ()> {
-		let encoded_data = codec::Encode::encode(data);
+	fn submit_transaction(data: Vec<u8>) -> Result<(), ()> {
 		let ret = unsafe {
-			ext_submit_transaction.get()(encoded_data.as_ptr(), encoded_data.len() as u32)
+			ext_submit_transaction.get()(data.as_ptr(), data.len() as u32)
 		};
 
 		if ret == 0 {
@@ -1232,26 +1211,4 @@ unsafe fn from_raw_parts(ptr: *mut u8, len: u32) -> Option<Vec<u8>> {
 }
 
 impl Api for () {}
-
-impl<'a> Printable for &'a [u8] {
-	fn print(&self) {
-		unsafe {
-			ext_print_hex.get()(self.as_ptr(), self.len() as u32);
-		}
-	}
-}
-
-impl<'a> Printable for &'a str {
-	fn print(&self) {
-		unsafe {
-			ext_print_utf8.get()(self.as_ptr() as *const u8, self.len() as u32);
-		}
-	}
-}
-
-impl Printable for u64 {
-	fn print(&self) {
-		unsafe { ext_print_num.get()(*self); }
-	}
-}
 
