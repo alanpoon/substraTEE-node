@@ -14,15 +14,13 @@ runtime_io = { package = "sr-io", path = "../../sr-tee-io", default-features = f
 [dependencies.sandbox]
 default-features = false
 package = 'sr-sandbox'
-git = 'https://github.com/paritytech/substrate'
-rev = '56b0273fd48b4e742e9da7317bc8e132a740b684'
+git = "https://github.com/scs/substrate"
 
 #substrate-primitives = { path = "../../primitives", default-features = false }
 [dependencies.substrate-primitives]
 default-features = false
 package = 'substrate-primitives'
-git = 'https://github.com/paritytech/substrate'
-rev = '56b0273fd48b4e742e9da7317bc8e132a740b684'
+git = "https://github.com/scs/substrate"
 
 [profile.release]
 panic = "abort"

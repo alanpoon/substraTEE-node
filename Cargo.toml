@@ -11,9 +11,6 @@ panic = "unwind"
 name = "substratee-node"
 path = "src/main.rs"
 
-
-
-
 # to run cargo test with dev-dependencies it must be part of a workspace
 #[workspace]
 #members = [ "runtime",
@@ -31,80 +28,74 @@ codec = { package = "parity-scale-codec", version = "1.0.0" }
 trie-root = "0.15.2"
 
 [dependencies.sr-io]
-git = "https://github.com/paritytech/substrate"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
+git = "https://github.com/scs/substrate"
 
 [dependencies.substrate-cli]
-git = "https://github.com/paritytech/substrate"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
+git = "https://github.com/scs/substrate"
 
 [dependencies.primitives]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-primitives"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.substrate-executor]
-git = "https://github.com/paritytech/substrate"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
+git = "https://github.com/scs/substrate"
 
 [dependencies.substrate-service]
-git = "https://github.com/paritytech/substrate"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
+git = "https://github.com/scs/substrate"
 
 [dependencies.inherents]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-inherents"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.transaction-pool]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-transaction-pool"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.network]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-network"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.babe]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-consensus-babe"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.babe-primitives]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-consensus-babe-primitives"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.grandpa]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-finality-grandpa"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.grandpa-primitives]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-finality-grandpa-primitives"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.basic-authorship]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "substrate-basic-authorship"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.contracts]
-git = "https://github.com/paritytech/substrate"
+git = "https://github.com/scs/substrate"
 package = "srml-contracts"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
 
 [dependencies.substratee-node-runtime]
 path = "runtime"
 features = ["enable_host_calls"]
 
 [dependencies.substrate-client]
-git = "https://github.com/paritytech/substrate"
-rev = "9b08e7ff938a45dbec7fcdb854063202e2b0cb48"
+git = "https://github.com/scs/substrate"
 
 [patch."https://github.com/paritytech/substrate"]
+sr-io = { package = "sr-io", path = "sr-tee-io", default-features=false }
+substrate-executor = { path = "substratee-executor", default-features=false}
+
+[patch."https://github.com/scs/substrate"]
+sr-io = { package = "sr-io", path = "sr-tee-io", default-features=false }
+substrate-executor = { path = "substratee-executor", default-features=false}
+
+
+[patch."https://github.com/scs/substrate.git"]
 sr-io = { package = "sr-io", path = "sr-tee-io", default-features=false }
 substrate-executor = { path = "substratee-executor", default-features=false}
 
