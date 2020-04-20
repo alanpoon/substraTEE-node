@@ -9,6 +9,8 @@ edition = "2018"
 members = [
     "host_calls",
     "runtime",
+    "pow",
+    "primitives"
 ]
 
 [[bin]]
@@ -25,6 +27,8 @@ exit-future = "0.1.4"
 parking_lot = "0.9.0"
 codec = { package = "parity-scale-codec", version = "1.0.0" }
 trie-root = "0.15.2"
+pow = {path = "pow"}
+consensus-pow = { package = "substrate-consensus-pow", git = "https://github.com/paritytech/substrate",rev = "3bf9540e72df5ecb3955845764dfee7dcdbb26b5" }
 
 [dependencies.sr-io]
 git = "https://github.com/paritytech/substrate"
@@ -99,6 +103,8 @@ rev = "3bf9540e72df5ecb3955845764dfee7dcdbb26b5"
 git = "https://github.com/paritytech/substrate"
 package = "substrate-basic-authorship"
 rev = "3bf9540e72df5ecb3955845764dfee7dcdbb26b5"
+
+
 
 [dependencies.host_calls]
 path = "host_calls"

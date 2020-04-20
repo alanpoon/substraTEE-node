@@ -1,0 +1,19 @@
+[package]
+name = "pow-primitives"
+version = "0.1.0"
+authors = ["alanpoon <brightshadowx@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sr-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate",rev = "3bf9540e72df5ecb3955845764dfee7dcdbb26b5" }
+consensus-pow-primitives = { package = "substrate-consensus-pow-primitives", git = "https://github.com/paritytech/substrate",rev = "3bf9540e72df5ecb3955845764dfee7dcdbb26b5" }
+consensus-pow = { package = "substrate-consensus-pow", git = "https://github.com/paritytech/substrate",rev = "3bf9540e72df5ecb3955845764dfee7dcdbb26b5" }
+sr-api = { package = "sr-api", git = "https://github.com/paritytech/substrate", default-features = false ,rev = "3bf9540e72df5ecb3955845764dfee7dcdbb26b5"}
+serde = { version = "1.0", optional = true, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+
+[features]
+default = ["std"]
+std = ["consensus-pow-primitives/std", "sr-primitives/std", "sr-api/std", "codec/std", "serde"]

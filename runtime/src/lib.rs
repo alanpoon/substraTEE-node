@@ -364,4 +364,16 @@ impl_runtime_apis! {
 			Grandpa::grandpa_authorities()
 		}
 	}
+	impl consensus_pow_primitives::DifficultyApi<Block, pow_primitives::Difficulty> for Runtime {
+		fn difficulty() -> consensus_pow_primitives::Difficulty {
+			difficulty::Module::<Runtime>::difficulty()
+		}
+	}
+
+	impl pow_primitives::AlgorithmApi<Block> for Runtime {
+		fn identifier() -> [u8; 8] {
+			pow_primitives::ALGORITHM_IDENTIFIER
+		}
+	}
+
 }
